@@ -1,0 +1,12 @@
+## 🎥 Demo Videos
+
+### 🔹 Full Demo (Google Drive)
+👉 https://drive.google.com/drive/u/1/folders/1r7Z7PQuexL8aEbO4ZKE4j0MYvz3xqyUg
+
+### 🔍 Includes:
+- Video processing pipeline  
+- Telemetry + frame-level analysis  
+- Real-time alert generation  
+- Frame indexing and semantic search  
+- Agent-based Q&A and reasoning  
+- Dashboard walkthrough and testing scenarios  

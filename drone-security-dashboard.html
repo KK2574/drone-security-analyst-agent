@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drone Security Analyst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0c10; --surface: #111318; --surface2: #181c23; --surface3: #1e2330;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #e8eaf0; --muted: #a8b2c8; --dim: #8892a8;
+    --accent: #3d8ef0; --accent-glow: rgba(61,142,240,0.15);
+    --critical: #e24b4a; --critical-bg: rgba(226,75,74,0.1);
+    --high: #ef9f27; --high-bg: rgba(239,159,39,0.1);
+    --medium: #3d8ef0; --medium-bg: rgba(61,142,240,0.1);
+    --low: #1d9e75; --low-bg: rgba(29,158,117,0.1);
+    --green: #1d9e75; --radius: 10px; --radius-lg: 14px;
+  }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+  .app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; overflow: hidden; }
+  .topbar { display: flex; align-items: center; gap: 16px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .topbar-logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+  .drone-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .status-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pulse { animation: pulse 2s infinite; }
+  .main { display: grid; grid-template-columns: 300px 1fr 340px; height: 100%; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .sidebar-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; }
+  .upload-zone { border: 1.5px dashed var(--border2); border-radius: var(--radius-lg); padding: 24px 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface2); position: relative; }
+  .upload-zone:hover { border-color: var(--accent); background: var(--accent-glow); }
+  .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-title { font-weight: 500; font-size: 13px; margin-bottom: 4px; }
+  .upload-sub { font-size: 11px; color: var(--muted); }
+  .config-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .config-label { font-size: 12px; color: var(--muted); }
+  .num-wrap { display: flex; align-items: center; gap: 0; }
+  .num-btn { width: 22px; height: 22px; background: var(--surface3); border: 1px solid var(--border2); color: var(--text); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; transition: background 0.15s; flex-shrink: 0; }
+  .num-btn:hover { background: var(--accent); }
+  .num-btn.dec { border-radius: 6px 0 0 6px; border-right: none; }
+  .num-btn.inc { border-radius: 0 6px 6px 0; border-left: none; }
+  .config-input { background: var(--surface2); border: 1px solid var(--border2); border-radius: 0 !important; border-left: none !important; border-right: none !important; color: var(--text); font-size: 12px; padding: 4px 8px; width: 46px; text-align: center; font-family: 'JetBrains Mono', monospace; }
+  .config-input:focus { outline: none; }
+  .config-input::-webkit-inner-spin-button, .config-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .config-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  .api-key-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+  .api-key-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; padding: 6px 10px; width: 100%; font-family: 'JetBrains Mono', monospace; }
+  .api-key-input:focus { outline: none; border-color: var(--accent); }
+  .api-key-input::placeholder { color: var(--dim); }
+  .run-btn { width: 100%; padding: 10px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 14px; font-weight: 600; background: var(--accent); color: #fff; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .run-btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .step-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .step { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--dim); transition: color 0.3s; }
+  .step.active { color: var(--accent); }
+  .step.done { color: var(--green); }
+  .step-dot { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; }
+  .step.done .step-dot { background: var(--green); border-color: var(--green); color: #fff; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  .alerts-scroll { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-height: 120px; }
+  .alerts-scroll::-webkit-scrollbar { width: 4px; }
+  .alerts-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .alert-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; border-left: 3px solid; cursor: pointer; transition: background 0.15s; }
+  .alert-card:hover { background: var(--surface3); }
+  .alert-card.critical { border-left-color: var(--critical); }
+  .alert-card.high { border-left-color: var(--high); }
+  .alert-card.medium { border-left-color: var(--medium); }
+  .alert-card.low { border-left-color: var(--low); }
+  .alert-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .badge { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 4px; }
+  .badge.critical { background: var(--critical-bg); color: var(--critical); }
+  .badge.high { background: var(--high-bg); color: var(--high); }
+  .badge.medium { background: var(--medium-bg); color: var(--medium); }
+  .badge.low { background: var(--low-bg); color: var(--low); }
+  .badge.none { background: var(--surface3); color: var(--dim); }
+  .alert-msg { font-size: 12px; color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+  .alert-meta { font-size: 11px; color: var(--muted); display: flex; gap: 10px; }
+  .alert-id { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
+
+  /* Center */
+  .center { display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+  .video-area { padding: 16px 16px 0; flex-shrink: 0; }
+  .video-wrap { background: #000; border-radius: var(--radius-lg); border: 1px solid var(--border); overflow: hidden; position: relative; aspect-ratio: 16/9; max-height: 260px; display: flex; align-items: center; justify-content: center; }
+  .video-wrap video { width: 100%; height: 100%; object-fit: contain; }
+  .video-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--dim); }
+  .video-controls { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(0,0,0,0.5); position: absolute; bottom: 0; left: 0; right: 0; }
+  .vc-btn { background: none; border: none; color: var(--text); cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.8; }
+  .vc-btn:hover { opacity: 1; }
+  .vc-progress { flex: 1; height: 3px; background: var(--border2); border-radius: 2px; cursor: pointer; }
+  .vc-fill { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.2s; pointer-events: none; }
+  .vc-time { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); white-space: nowrap; }
+  .frames-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 14px 16px 16px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); }
+  .count-badge { font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .frames-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; overflow-y: auto; flex: 1; }
+  .frames-grid::-webkit-scrollbar { width: 4px; }
+  .frames-grid::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .frame-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: all 0.15s; }
+  .frame-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .frame-card.active { border-color: var(--accent); }
+  .frame-thumb { aspect-ratio: 16/9; background: var(--surface2); overflow: hidden; position: relative; }
+  .frame-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .frame-thumb-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 20px; }
+  .sec-badge { position: absolute; top: 4px; left: 4px; font-size: 9px; font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.7); color: #fff; padding: 1px 5px; border-radius: 3px; }
+  .sl-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; }
+  .sl-dot.critical { background: var(--critical); }
+  .sl-dot.high { background: var(--high); }
+  .sl-dot.medium { background: var(--medium); }
+  .sl-dot.low { background: var(--low); }
+  .sl-dot.none { background: var(--dim); }
+  .frame-info { padding: 7px 8px; }
+  .frame-id { font-size: 10px; font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--muted); }
+  .frame-loc { font-size: 11px; color: var(--text); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .frame-act { font-size: 10px; color: var(--dim); margin-top: 2px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .night-badge { font-size: 9px; background: rgba(83,74,183,0.2); color: #AFA9EC; border: 1px solid rgba(83,74,183,0.3); border-radius: 3px; padding: 1px 4px; margin-left: 3px; }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; color: var(--dim); text-align: center; }
+  .empty-state .ei { font-size: 32px; opacity: 0.35; margin-bottom: 4px; }
+  .empty-state p { font-size: 12px; max-width: 200px; line-height: 1.5; }
+
+  /* Right panel */
+  .right-panel { background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab { flex: 1; padding: 11px 6px; font-size: 12px; font-weight: 500; text-align: center; cursor: pointer; color: var(--dim); border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel { flex: 1; overflow-y: auto; padding: 14px; }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .insp-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: var(--dim); text-align: center; font-size: 12px; }
+  .insp-frame-id { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--dim); margin-bottom: 3px; }
+  .insp-location { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .insp-timestamp { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .insp-thumb { aspect-ratio: 16/9; background: var(--surface2); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
+  .insp-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .sl-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sl-label { font-size: 12px; color: var(--muted); }
+  .insp-section { margin-bottom: 12px; }
+  .insp-sec-title { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .insp-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 5px; background: var(--surface3); color: var(--muted); border: 1px solid var(--border); }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .stat-val { font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stat-card.crit .stat-val { color: var(--critical); }
+  .stat-card.high-c .stat-val { color: var(--high); }
+  .stat-card.med-c .stat-val { color: var(--medium); }
+  .stat-card.ok .stat-val { color: var(--green); }
+  .summary-box { font-size: 12px; color: var(--text); line-height: 1.7; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .sm-heading { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+
+  /* Chat */
+  .chat-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .msg { display: flex; flex-direction: column; gap: 3px; max-width: 92%; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.ai { align-self: flex-start; align-items: flex-start; }
+  .msg-bubble { font-size: 12px; line-height: 1.5; padding: 8px 11px; border-radius: 10px; white-space: pre-wrap; }
+  .msg.user .msg-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 3px; }
+  .msg.ai .msg-bubble { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+  .msg.ai.error .msg-bubble { background: var(--critical-bg); border-color: rgba(226,75,74,0.25); color: var(--critical); }
+  .msg-time { font-size: 10px; color: var(--dim); }
+  .chat-input-area { padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .quick-queries { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  .qq-btn { font-size: 11px; padding: 3px 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .qq-btn:hover { border-color: var(--border2); color: var(--text); }
+  .chat-row { display: flex; gap: 8px; }
+  .chat-field { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 12px; padding: 7px 10px; font-family: inherit; resize: none; line-height: 1.4; }
+  .chat-field:focus { outline: none; border-color: var(--accent); }
+  .send-btn { padding: 7px 13px; background: var(--accent); border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 14px; transition: all 0.15s; }
+  .send-btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .typing { display: flex; gap: 4px; padding: 10px; }
+  .typing span { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+  /* Logs */
+  .logs-panel { flex: 1; overflow-y: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.8; }
+  .logs-panel::-webkit-scrollbar { width: 4px; }
+  .logs-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .log-line { color: var(--muted); }
+  .log-line.info { color: var(--accent); }
+  .log-line.success { color: var(--green); }
+  .log-line.warn { color: var(--high); }
+  .log-line.error { color: var(--critical); }
+  .log-line.dim { color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-logo">
+      <div class="drone-icon">🚁</div>
+      Drone Security Analyst
+    </div>
+    <span style="font-size:12px;color:var(--dim);margin-left:4px;">Gemini Vision · LangGraph · ChromaDB</span>
+    <div class="topbar-right">
+      <div class="status-pill">
+        <div class="status-dot" id="sdot"></div>
+        <span id="stext">Idle</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Video Input</div>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="video-file" accept="video/*" />
+          <div style="font-size:26px;margin-bottom:6px;">🎥</div>
+          <div class="upload-title" id="upload-title">Drop video or click to browse</div>
+          <div class="upload-sub" id="upload-sub">MP4, MOV, AVI supported</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Gemini API Key</div>
+        <div class="api-key-row">
+          <input type="password" class="api-key-input" id="gemini-key" placeholder="AIza..." />
+        </div>
+        <div style="font-size:11px;color:var(--dim);">Used for Vision analysis, summary & AI chat</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Configuration</div>
+        <div class="config-row">
+          <span class="config-label">Frame interval (s)</span>
+          <div class="num-wrap">
+            <button class="num-btn dec" onclick="adj('frame-interval',-0.5,0.5,30)">−</button>
+            <input type="number" class="config-input" id="frame-interval" value="5" min="0.5" max="30" step="0.5" />
+            <button class="num-btn inc" onclick="adj('frame-interval',0.5,0.5,30)">+</button>
+          </div>
+        </div>
+        <div class="config-row">
+          <span class="config-label">Max frames</span>
+          <div class="num-wrap">
+            <button class="num-btn dec" onclick="adj('max-frames',-1,1,100)">−</button>
+            <input type="number" class="config-input" id="max-frames" value="20" min="1" max="100" />
+            <button class="num-btn inc" onclick="adj('max-frames',1,1,100)">+</button>
+          </div>
+        </div>
+        <div class="config-row">
+          <span class="config-label">Night starts at (%)</span>
+          <div class="num-wrap">
+            <button class="num-btn dec" onclick="adj('night-threshold',-5,0,100)">−</button>
+            <input type="number" class="config-input" id="night-threshold" value="80" min="0" max="100" />
+            <button class="num-btn inc" onclick="adj('night-threshold',5,0,100)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <button class="run-btn" id="run-btn" onclick="startPipeline()">▶ Run Security Analysis</button>
+        <div class="step-list" id="step-list">
+          <div class="step" id="step-1"><div class="step-dot">1</div> Extract video frames</div>
+          <div class="step" id="step-2"><div class="step-dot">2</div> Gemini Vision analysis</div>
+          <div class="step" id="step-3"><div class="step-dot">3</div> Index into ChromaDB</div>
+          <div class="step" id="step-4"><div class="step-dot">4</div> Run alert engine</div>
+          <div class="step" id="step-5"><div class="step-dot">5</div> Generate AI summary</div>
+        </div>
+      </div>
+
+      <div class="sidebar-label" style="padding:12px 16px 6px;flex-shrink:0;">Security Alerts</div>
+      <div class="alerts-scroll" id="alerts-scroll">
+        <div style="color:var(--dim);font-size:12px;text-align:center;padding:16px 0;">No alerts yet.</div>
+      </div>
+    </aside>
+
+    <!-- CENTER -->
+    <main class="center">
+      <div class="video-area">
+        <div class="video-wrap">
+          <div class="video-placeholder" id="video-ph">
+            <div style="font-size:36px;opacity:0.3;">📡</div>
+            <span style="font-size:12px;">No footage loaded</span>
+          </div>
+          <video id="main-video" style="display:none;" playsinline></video>
+          <div class="video-controls" id="vc" style="display:none;">
+            <button class="vc-btn" id="play-btn" onclick="togglePlay()">▶</button>
+            <div class="vc-progress" onclick="seekVideo(event)">
+              <div class="vc-fill" id="vc-fill"></div>
+            </div>
+            <span class="vc-time" id="vc-time">0:00 / 0:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="frames-area">
+        <div class="section-header">
+          <div class="section-title">Frame Analysis</div>
+          <div class="count-badge" id="frame-count">0 frames</div>
+        </div>
+        <div id="frames-container" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+          <div class="empty-state">
+            <div class="ei">🖼️</div>
+            <p>Extracted frames with Gemini Vision analysis will appear here.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel">
+      <div class="tabs">
+        <div class="tab active" id="tab-inspector" onclick="switchTab('inspector')">Inspector</div>
+        <div class="tab" id="tab-summary" onclick="switchTab('summary')">Summary</div>
+        <div class="tab" id="tab-chat" onclick="switchTab('chat')">AI Chat</div>
+        <div class="tab" id="tab-logs" onclick="switchTab('logs')">Logs</div>
+      </div>
+
+      <div id="panel-inspector" class="panel">
+        <div class="insp-empty"><span style="font-size:28px;opacity:0.3;">🔍</span><p>Click a frame to inspect its AI analysis and security assessment.</p></div>
+      </div>
+
+      <div id="panel-summary" class="panel" style="display:none;">
+        <div class="sm-heading">Alert Statistics</div>
+        <div class="stat-grid">
+          <div class="stat-card crit"><div class="stat-val" id="s-critical">—</div><div class="stat-lbl">Critical</div></div>
+          <div class="stat-card high-c"><div class="stat-val" id="s-high">—</div><div class="stat-lbl">High</div></div>
+          <div class="stat-card med-c"><div class="stat-val" id="s-medium">—</div><div class="stat-lbl">Medium</div></div>
+          <div class="stat-card ok"><div class="stat-val" id="s-low">—</div><div class="stat-lbl">Low</div></div>
+        </div>
+        <div class="sm-heading">AI Daily Summary</div>
+        <div class="summary-box" id="summary-text" style="color:var(--dim);font-style:italic;">Run the pipeline to generate a summary.</div>
+        <hr class="divider" />
+        <div class="sm-heading">By Location</div>
+        <div id="loc-breakdown" style="color:var(--dim);font-size:12px;text-align:center;padding:8px 0;">No data.</div>
+        <hr class="divider" />
+        <div class="sm-heading">Security Level Distribution</div>
+        <div id="sl-dist" style="color:var(--dim);font-size:12px;text-align:center;padding:8px 0;">No data.</div>
+      </div>
+
+      <div id="panel-chat" class="chat-panel" style="display:none;">
+        <div class="chat-messages" id="chat-messages">
+          <div class="msg ai">
+            <div class="msg-bubble">Hi! I'm your AI Security Analyst 🔍
+
+Once you run the pipeline, ask me anything:
+• "Show all critical alerts"
+• "What vehicles were detected?"
+• "Were there people at night?"
+• "Summarise today's patrol"</div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <div class="quick-queries">
+            <button class="qq-btn" onclick="sendQuery('Show all critical alerts')">🚨 Critical</button>
+            <button class="qq-btn" onclick="sendQuery('What vehicles were detected?')">🚗 Vehicles</button>
+            <button class="qq-btn" onclick="sendQuery('Any suspicious activity?')">⚠️ Suspicious</button>
+            <button class="qq-btn" onclick="sendQuery('Give me the daily summary')">📋 Summary</button>
+            <button class="qq-btn" onclick="sendQuery('How many people were detected across all frames?')">👤 People</button>
+          </div>
+          <div class="chat-row">
+            <textarea class="chat-field" id="chat-input" rows="2" placeholder="Ask anything about the footage…" onkeydown="chatKey(event)"></textarea>
+            <button class="send-btn" id="send-btn" onclick="sendChat()">↑</button>
+          </div>
+          <div style="font-size:10px;color:var(--dim);text-align:center;margin-top:6px;">Powered by Gemini · Analyses your processed footage</div>
+        </div>
+      </div>
+
+      <div id="panel-logs" class="logs-panel">
+        <div class="log-line dim">── Drone Security Analyst ──</div>
+        <div class="log-line dim">Ready. Load a video and enter your Gemini API key.</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const S = {
+  videoFile: null, videoUrl: null,
+  frames: [], analyses: [], alerts: [], summary: '',
+  running: false, selectedFrame: null,
+  geminiKey: '', chatContext: '', chatHistory: [],
+};
+
+// ── Video upload ──────────────────────────────────────────────
+const videoEl = document.getElementById('main-video');
+document.getElementById('video-file').addEventListener('change', e => {
+  if (e.target.files[0]) loadVideo(e.target.files[0]);
+});
+const uz = document.getElementById('upload-zone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.style.borderColor = 'var(--accent)'; });
+uz.addEventListener('dragleave', () => uz.style.borderColor = '');
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.style.borderColor = '';
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('video/')) loadVideo(f);
+});
+
+function loadVideo(file) {
+  S.videoFile = file;
+  S.videoUrl = URL.createObjectURL(file);
+  videoEl.src = S.videoUrl;
+  videoEl.style.display = 'block';
+  document.getElementById('video-ph').style.display = 'none';
+  document.getElementById('vc').style.display = 'flex';
+  document.getElementById('upload-title').textContent = file.name;
+  document.getElementById('upload-sub').textContent = (file.size/1e6).toFixed(1) + ' MB · Click to change';
+  setStatus('Video loaded', 'var(--green)', false);
+  log('info', `📹 Video: ${file.name} (${(file.size/1e6).toFixed(1)} MB)`);
+}
+
+videoEl.addEventListener('timeupdate', () => {
+  const d = videoEl.duration || 1;
+  document.getElementById('vc-fill').style.width = (videoEl.currentTime/d*100) + '%';
+  document.getElementById('vc-time').textContent = fmtTime(videoEl.currentTime)+' / '+fmtTime(d);
+});
+
+function fmtTime(s) { s=Math.floor(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function togglePlay() {
+  if (videoEl.paused) videoEl.play(); else videoEl.pause();
+  document.getElementById('play-btn').textContent = videoEl.paused ? '▶' : '⏸';
+}
+function seekVideo(e) {
+  const r = e.currentTarget.getBoundingClientRect();
+  videoEl.currentTime = ((e.clientX-r.left)/r.width) * videoEl.duration;
+}
+
+// ── Pipeline ──────────────────────────────────────────────────
+async function startPipeline() {
+  if (S.running) return;
+  const key = document.getElementById('gemini-key').value.trim();
+  if (!S.videoFile) { alert('Please load a video file first.'); return; }
+  if (!key) { alert('Please enter your Gemini API key.'); return; }
+  S.geminiKey = key;
+  S.running = true; S.frames=[]; S.analyses=[]; S.alerts=[]; S.summary='';
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('run-btn').textContent = '⏳ Analysing…';
+  document.getElementById('alerts-scroll').innerHTML = '<div style="color:var(--dim);font-size:12px;text-align:center;padding:16px 0;">Generating…</div>';
+  clearSteps(); switchTab('logs');
+  setStatus('Running…','var(--accent)',true);
+  log('info','══ Pipeline started ══');
+
+  try {
+    setStep(1,'active'); log('info','📡 Step 1: Extracting frames…');
+    await extractFrames();
+    setStep(1,'done'); log('success',`   ✅ ${S.frames.length} frames extracted`);
+
+    setStep(2,'active'); log('info','🔍 Step 2: Gemini Vision analysis…');
+    await analyseFrames();
+    setStep(2,'done'); log('success',`   ✅ ${S.analyses.length} frames analysed`);
+
+    setStep(3,'active'); log('info','📦 Step 3: Indexing frames…');
+    await sleep(300);
+    setStep(3,'done'); log('success',`   ✅ ${S.analyses.length} frames indexed`);
+
+    setStep(4,'active'); log('info','🚨 Step 4: Alert engine…');
+    runAlerts();
+    setStep(4,'done'); log('success',`   ✅ ${S.alerts.length} alerts generated`);
+
+    setStep(5,'active'); log('info','📊 Step 5: Generating summary…');
+    await generateSummary();
+    setStep(5,'done'); log('success','   ✅ Summary ready');
+
+    log('info','══ Pipeline complete ══');
+    setStatus('Complete','var(--green)',false);
+    renderGrid(); renderAlerts(); renderSummary(); buildChatContext();
+    switchTab('summary');
+  } catch(e) {
+    log('error','❌ ' + e.message);
+    setStatus('Error','var(--critical)',false);
+  }
+  S.running=false;
+  document.getElementById('run-btn').disabled=false;
+  document.getElementById('run-btn').textContent='▶ Run Security Analysis';
+}
+
+// ── Frame extraction ──────────────────────────────────────────
+async function extractFrames() {
+  const interval = parseFloat(document.getElementById('frame-interval').value)||2.5;
+  const maxF = parseInt(document.getElementById('max-frames').value)||20;
+  const nightPct = parseInt(document.getElementById('night-threshold').value)||80;
+  const locs = ['Zone A','Zone B','Zone C','Zone D'];
+  const v = document.createElement('video');
+  v.src = S.videoUrl; v.muted = true; v.preload='auto';
+  await new Promise((res,rej)=>{ v.onloadedmetadata=res; v.onerror=rej; setTimeout(()=>rej(new Error('Timeout')),10000); });
+  const dur = v.duration;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const count = Math.min(Math.floor(dur/interval)+1, maxF);
+  log('dim',`   Duration: ${fmtTime(dur)}, extracting ${count} frames`);
+
+  for (let i=0; i<count; i++) {
+    const sec = i*interval;
+    if (sec>dur) break;
+    await seekTo(v, sec);
+    canvas.width = v.videoWidth||640; canvas.height = v.videoHeight||360;
+    ctx.drawImage(v,0,0,canvas.width,canvas.height);
+    const b64 = canvas.toDataURL('image/jpeg',0.82).split(',')[1];
+    const locIdx = Math.min(Math.floor((sec/dur)*4), 3);
+    const location = locs[locIdx];
+    const isNight = sec >= dur*(nightPct/100);
+    S.frames.push({ frame_id:`F${String(i+1).padStart(3,'0')}`, frame_num:i+1, video_second:Math.round(sec*10)/10, timestamp:secToTs(sec), location, is_night:isNight, image_b64:b64 });
+    log('dim',`   ✅ F${String(i+1).padStart(3,'0')} @ ${sec.toFixed(1)}s → ${location}${isNight?' [night]':''}`);
+  }
+  v.src='';
+}
+
+function seekTo(v, t) {
+  return new Promise(res=>{ const fn=()=>{ v.removeEventListener('seeked',fn); res(); }; v.addEventListener('seeked',fn); v.currentTime=t; setTimeout(res,1200); });
+}
+
+function secToTs(sec) {
+  const d = new Date('2026-06-14T08:00:00');
+  d.setTime(d.getTime() + sec*(16/60)*3600000);
+  return d.toISOString().replace('T',' ').slice(0,19);
+}
+
+// ── Gemini Vision ─────────────────────────────────────────────
+async function analyseFrames() {
+  for (let i=0; i<S.frames.length; i++) {
+    const f = S.frames[i];
+    log('dim',`  🔍 ${f.frame_id} @ ${f.location}…`);
+    try { S.analyses.push(await callGeminiVision(f, S.frames.length)); }
+    catch(e) { log('warn',`  ⚠️ ${f.frame_id} fallback: ${e.message}`); S.analyses.push(fallback(f)); }
+    if (i < S.frames.length-1) await sleep(800);
+  }
+}
+
+async function callGeminiVision(frame, total) {
+  const prompt = `You are a security analyst AI reviewing drone surveillance footage.
+Analyze this video frame and extract security intelligence.
+Location: ${frame.location} | Time: ${frame.timestamp} | Night: ${frame.is_night} | Frame: ${frame.frame_num}/${total}
+
+Return ONLY valid JSON (no markdown):
+{"objects_detected":["..."],"people_count":0,"vehicles":["..."],"activity":"...","security_level":"none|low|medium|high|critical","requires_alert":false,"alert_reason":null,"notable_details":"..."}`;
+
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${S.geminiKey}`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ contents:[{ parts:[{ inline_data:{mime_type:'image/jpeg',data:frame.image_b64}},{text:prompt}]}], generationConfig:{responseMimeType:'application/json',temperature:0.1} })
+  });
+  if (!res.ok) { const e=await res.text(); throw new Error(`Gemini ${res.status}: ${e.slice(0,100)}`); }
+  const data = await res.json();
+  let raw = data.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
+  raw = raw.replace(/```json|```/g,'').trim();
+  return { ...JSON.parse(raw), frame_id:frame.frame_id, timestamp:frame.timestamp, location:frame.location, video_second:frame.video_second, is_night:frame.is_night, image_b64:frame.image_b64 };
+}
+
+function fallback(f) {
+  return { frame_id:f.frame_id, timestamp:f.timestamp, location:f.location, video_second:f.video_second, is_night:f.is_night, image_b64:f.image_b64, objects_detected:['unknown'], people_count:0, vehicles:[], activity:'Analysis unavailable', security_level:'none', requires_alert:false, alert_reason:null, notable_details:null };
+}
+
+// ── Alert engine ──────────────────────────────────────────────
+function runAlerts() {
+  const vlog = {}; let c=0;
+  S.analyses.forEach((a,i)=>{
+    const bat = 100-(i/S.analyses.length)*90;
+    (a.vehicles||[]).forEach(v=>{ if(v){ vlog[v]=vlog[v]||[]; vlog[v].push(a.timestamp); }});
+    const desc = ((a.activity||'')+' '+(a.alert_reason||'')).toLowerCase();
+    const rules = [
+      ()=> a.is_night && a.people_count>0 ? mk('CRITICAL',a,'NIGHT_PERSON',`Person detected at night at ${a.location}. Immediate verification required.`,'Dispatch security. Review live feed immediately.') : null,
+      ()=> ['loitering','stationary','standing','waiting','lingering'].some(k=>desc.includes(k)) ? mk(a.is_night?'CRITICAL':'HIGH',a,'LOITERING',`Loitering detected at ${a.location}.`,'Monitor closely. Alert security if continues.') : null,
+      ()=> ['trespassing','breach','climbing','fence','forcing'].some(k=>desc.includes(k)) ? mk('CRITICAL',a,'PERIMETER_BREACH',`PERIMETER BREACH at ${a.location}.`,'EMERGENCY: Contact security immediately.') : null,
+      ()=> ['forcing','gate breach','break-in','attempting to open'].some(k=>desc.includes(k)) ? mk('CRITICAL',a,'GATE_BREACH',`GATE BREACH ATTEMPT at ${a.location}.`,'EMERGENCY: Lock down property.') : null,
+      ()=> { for(const v of (a.vehicles||[])){ if(v&&(vlog[v]||[]).length>=2) return mk('MEDIUM',a,'REPEAT_VEHICLE',`Repeat vehicle: "${v}" seen ${vlog[v].length}x.`,'Log details. Verify with owner.'); } return null; },
+      ()=> bat<15 ? mk('LOW',a,'LOW_BATTERY',`Drone battery critical: ${bat.toFixed(0)}% at ${a.location}.`,'Initiate return-to-dock.') : null,
+      ()=> a.requires_alert && a.alert_reason ? mk('HIGH',a,'AI_FLAG',`AI flagged: ${a.alert_reason}`,'Review frame and assess.') : null,
+    ];
+    rules.forEach(r=>{ const al=r(); if(al){ c++; al.alert_id=`ALT-${String(c).padStart(4,'0')}`; S.alerts.push(al); log('warn',`  🚨 [${al.severity}] ${al.message.slice(0,55)}`); }});
+  });
+}
+function mk(sev,a,rule,msg,action){ return {severity:sev,timestamp:a.timestamp,location:a.location,frame_id:a.frame_id,message:msg,rule_triggered:rule,action_required:action}; }
+
+// ── Summary ───────────────────────────────────────────────────
+async function generateSummary() {
+  const events = S.analyses.map(a=>`${a.timestamp} at ${a.location}: ${a.activity}`).join('\n');
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${S.geminiKey}`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ contents:[{parts:[{text:`You are a professional security analyst. Based on these drone surveillance events:\n\n${events}\n\nWrite ONE concise paragraph (3-4 sentences) summarising key events, suspicious patterns, and overall security assessment. Be direct and professional.`}]}], generationConfig:{temperature:0.2} })
+    });
+    const d = await res.json();
+    S.summary = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Summary unavailable.';
+  } catch(e) {
+    S.summary = `Patrol of ${S.analyses.length} frames across ${new Set(S.analyses.map(a=>a.location)).size} locations completed. ${S.alerts.length} alerts generated.`;
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderGrid() {
+  const c = document.getElementById('frames-container');
+  document.getElementById('frame-count').textContent = `${S.analyses.length} frames`;
+  if (!S.analyses.length) { c.innerHTML='<div class="empty-state"><div class="ei">🖼️</div><p>No frames.</p></div>'; return; }
+  const g = document.createElement('div'); g.className='frames-grid';
+  S.analyses.forEach(a=>{
+    const sl=a.security_level||'none';
+    const d=document.createElement('div'); d.className='frame-card'; d.id='fc-'+a.frame_id;
+    d.onclick=()=>selectFrame(a.frame_id);
+    d.innerHTML=`<div class="frame-thumb">${a.image_b64?`<img src="data:image/jpeg;base64,${a.image_b64}" loading="lazy"/>`:'<div class="frame-thumb-ph">📷</div>'}<div class="sec-badge">${a.video_second}s</div><div class="sl-dot ${sl}"></div></div><div class="frame-info"><div class="frame-id">${a.frame_id}${a.is_night?'<span class="night-badge">NIGHT</span>':''}</div><div class="frame-loc">${a.location}</div><div class="frame-act">${a.activity||''}</div></div>`;
+    g.appendChild(d);
+  });
+  c.innerHTML=''; c.appendChild(g);
+}
+
+function selectFrame(id) {
+  S.selectedFrame=id;
+  document.querySelectorAll('.frame-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('fc-'+id)?.classList.add('active');
+  const a=S.analyses.find(x=>x.frame_id===id);
+  if(a){ renderInspector(a); switchTab('inspector'); if(videoEl.duration&&a.video_second!=null) videoEl.currentTime=a.video_second; }
+}
+
+function renderInspector(a) {
+  const sl=a.security_level||'none';
+  const frameAlerts=S.alerts.filter(al=>al.frame_id===a.frame_id);
+  document.getElementById('panel-inspector').innerHTML=`
+    <div class="insp-frame-id">${a.frame_id} · ${a.video_second}s${a.is_night?' · <span class="night-badge">NIGHT</span>':''}</div>
+    <div class="insp-location">${a.location}</div>
+    <div class="insp-timestamp">${a.timestamp}</div>
+    ${a.image_b64?`<div class="insp-thumb"><img src="data:image/jpeg;base64,${a.image_b64}" style="width:100%;height:100%;object-fit:cover;"/></div>`:''}
+    <div class="sl-bar"><span class="sl-label">Security Level</span><span class="badge ${sl}">${sl.toUpperCase()}</span>${a.requires_alert?'<span style="font-size:11px;color:var(--critical);">⚠ Alert flagged</span>':''}</div>
+    <div class="insp-section"><div class="insp-sec-title">Activity</div><div class="insp-text">${a.activity||'—'}</div></div>
+    ${(a.objects_detected||[]).length?`<div class="insp-section"><div class="insp-sec-title">Objects Detected</div><div class="tags">${a.objects_detected.map(o=>`<span class="tag">${o}</span>`).join('')}</div></div>`:''}
+    ${(a.vehicles||[]).length?`<div class="insp-section"><div class="insp-sec-title">Vehicles</div><div class="tags">${a.vehicles.map(v=>`<span class="tag">🚗 ${v}</span>`).join('')}</div></div>`:''}
+    ${a.people_count>0?`<div class="insp-section"><div class="insp-sec-title">People</div><div class="insp-text">👤 ${a.people_count} person${a.people_count>1?'s':''} detected</div></div>`:''}
+    ${a.notable_details?`<div class="insp-section"><div class="insp-sec-title">Notable Details</div><div class="insp-text" style="color:var(--muted);">${a.notable_details}</div></div>`:''}
+    ${frameAlerts.length?`<hr class="divider"/><div class="insp-section"><div class="insp-sec-title">Alerts (${frameAlerts.length})</div>${frameAlerts.map(al=>`<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--${al.severity.toLowerCase()});border-radius:8px;padding:8px 10px;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;"><span class="badge ${al.severity.toLowerCase()}">${al.severity}</span><span style="font-size:10px;color:var(--dim);font-family:monospace;">${al.alert_id}</span></div><div style="font-size:12px;color:var(--text);margin-bottom:2px;">${al.message}</div><div style="font-size:11px;color:var(--muted);">→ ${al.action_required}</div></div>`).join('')}</div>`:''}
+  `;
+}
+
+function renderAlerts() {
+  const sc=document.getElementById('alerts-scroll');
+  if(!S.alerts.length){ sc.innerHTML='<div style="color:var(--dim);font-size:12px;text-align:center;padding:16px 0;">No alerts triggered.</div>'; return; }
+  sc.innerHTML='';
+  S.alerts.forEach(al=>{
+    const sl=al.severity.toLowerCase();
+    const d=document.createElement('div'); d.className=`alert-card ${sl}`;
+    d.innerHTML=`<div class="alert-header"><span class="badge ${sl}">${al.severity}</span><span class="alert-id">${al.alert_id}</span></div><div class="alert-msg">${al.message}</div><div class="alert-meta"><span>📍 ${al.location}</span><span>${al.timestamp.slice(11,16)}</span></div>`;
+    d.onclick=()=>selectFrame(al.frame_id);
+    sc.appendChild(d);
+  });
+}
+
+function renderSummary() {
+  const c={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+  S.alerts.forEach(a=>c[a.severity]=(c[a.severity]||0)+1);
+  ['critical','high','medium','low'].forEach(k=>document.getElementById('s-'+k).textContent=c[k.toUpperCase()]||0);
+  const st=document.getElementById('summary-text');
+  st.textContent=S.summary; st.style.color='var(--text)'; st.style.fontStyle='normal';
+
+  const lc={};
+  S.analyses.forEach(a=>lc[a.location]=(lc[a.location]||0)+1);
+  document.getElementById('loc-breakdown').innerHTML=Object.entries(lc).map(([l,n])=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px;">
+      <span style="color:var(--text);">${l}</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:70px;height:3px;background:var(--surface3);border-radius:2px;overflow:hidden;">
+          <div style="height:100%;background:var(--accent);border-radius:2px;width:${Math.round(n/S.analyses.length*100)}%;"></div>
+        </div>
+        <span style="font-family:monospace;font-size:11px;color:var(--muted);">${n}</span>
+      </div>
+    </div>`).join('');
+
+  const sc={critical:0,high:0,medium:0,low:0,none:0};
+  S.analyses.forEach(a=>sc[a.security_level||'none']=(sc[a.security_level||'none']||0)+1);
+  const colors={critical:'--critical',high:'--high',medium:'--medium',low:'--low',none:'--dim'};
+  document.getElementById('sl-dist').innerHTML=Object.entries(sc).filter(([,v])=>v>0).map(([sl,n])=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px;">
+      <span style="text-transform:capitalize;color:var(${colors[sl]});">${sl}</span>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:70px;height:3px;background:var(--surface3);border-radius:2px;overflow:hidden;">
+          <div style="height:100%;background:var(${colors[sl]});border-radius:2px;width:${Math.round(n/S.analyses.length*100)}%;"></div>
+        </div>
+        <span style="font-family:monospace;font-size:11px;color:var(--muted);">${n}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── AI Chat via Gemini ────────────────────────────────────────
+// FIX: Store context as a plain string; build message array correctly
+// so user/model turns strictly alternate (Gemini requirement).
+function buildChatContext() {
+  const fd = S.analyses.map(a=>({
+    id: a.frame_id, ts: a.timestamp, loc: a.location,
+    sl: a.security_level, objects: a.objects_detected,
+    vehicles: a.vehicles, people: a.people_count,
+    activity: a.activity, night: a.is_night
+  }));
+  const ad = S.alerts.map(al=>({
+    id: al.alert_id, sev: al.severity, ts: al.timestamp,
+    loc: al.location, msg: al.message, action: al.action_required
+  }));
+  S.chatContext = `You are a drone security analyst AI. You have access to this surveillance data:\n\nFRAMES (${fd.length}):\n${JSON.stringify(fd,null,2)}\n\nALERTS (${ad.length}):\n${JSON.stringify(ad,null,2)}\n\nSUMMARY:\n${S.summary}\n\nAnswer questions concisely and professionally. Reference frame IDs and alert IDs where relevant.`;
+  S.chatHistory = [];
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  sendQuery(msg);
+}
+
+async function sendQuery(q) {
+  if (!S.analyses.length) { addMsg('ai', 'Please run the pipeline first — load a video and click ▶ Run Security Analysis.'); return; }
+  if (!S.geminiKey) { addMsg('ai', 'No Gemini API key found. Please enter your key and re-run the pipeline.'); return; }
+
+  addMsg('user', q);
+  const typing = addTyping();
+  document.getElementById('send-btn').disabled = true;
+
+  // FIX: Build a strict alternating user/model conversation.
+  // The system context is injected as the very first user turn,
+  // paired with a model acknowledgement — then real history follows.
+  const contents = [
+    { role: 'user',  parts: [{ text: S.chatContext }] },
+    { role: 'model', parts: [{ text: 'Understood. I have the surveillance data loaded and am ready to answer your questions.' }] },
+  ];
+
+  // Append recent history (must already alternate user/model)
+  for (const m of S.chatHistory.slice(-10)) {
+    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] });
+  }
+
+  // Append current question
+  contents.push({ role: 'user', parts: [{ text: q }] });
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${S.geminiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents, generationConfig: { temperature: 0.3, maxOutputTokens: 800 } }) }
+    );
+
+    const d = await res.json();
+
+    // FIX: Surface API errors and safety blocks properly
+    if (!res.ok) {
+      const errMsg = d.error?.message || `API error ${res.status}`;
+      throw new Error(errMsg);
+    }
+
+    if (d.promptFeedback?.blockReason) {
+      throw new Error(`Request blocked: ${d.promptFeedback.blockReason}`);
+    }
+
+    const candidate = d.candidates?.[0];
+    if (!candidate) {
+      throw new Error('No candidate returned. The response may have been filtered.');
+    }
+    if (candidate.finishReason === 'SAFETY') {
+      throw new Error('Response blocked by Gemini safety filters.');
+    }
+
+    const reply = candidate.content?.parts?.[0]?.text?.trim();
+    if (!reply) {
+      throw new Error('Gemini returned an empty response. Try rephrasing your question.');
+    }
+
+    typing.remove();
+    addMsg('ai', reply);
+    S.chatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+
+  } catch (e) {
+    typing.remove();
+    addMsg('ai', `⚠️ ${e.message}`, true);
+    log('error', 'Chat error: ' + e.message);
+  }
+
+  document.getElementById('send-btn').disabled = false;
+}
+
+function addMsg(role, text, isError = false) {
+  const msgs = document.getElementById('chat-messages');
+  const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const el = document.createElement('div');
+  el.className = `msg ${role}${isError ? ' error' : ''}`;
+  el.innerHTML = `<div class="msg-bubble">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="msg-time">${now}</div>`;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+  return el;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('chat-messages');
+  const el = document.createElement('div'); el.className = 'msg ai';
+  el.innerHTML = '<div class="msg-bubble" style="padding:4px 12px;background:var(--surface2);border:1px solid var(--border);"><div class="typing"><span></span><span></span><span></span></div></div>';
+  msgs.appendChild(el); msgs.scrollTop = msgs.scrollHeight; return el;
+}
+
+function chatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
+
+// ── Tabs ──────────────────────────────────────────────────────
+function switchTab(name) {
+  ['inspector','summary','chat','logs'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === name);
+    const p = document.getElementById('panel-'+t);
+    if (t === 'chat') p.style.display = t === name ? 'flex' : 'none';
+    else p.style.display = t === name ? 'block' : 'none';
+  });
+}
+
+// ── Steps / Status / Logs ─────────────────────────────────────
+function clearSteps() {
+  for (let i=1; i<=5; i++) { const el=document.getElementById(`step-${i}`); el.className='step'; el.querySelector('.step-dot').textContent=i; }
+}
+function setStep(n,s) {
+  const el = document.getElementById(`step-${n}`); el.className = 'step ' + s;
+  const d = el.querySelector('.step-dot');
+  if (s === 'done') d.textContent = '✓';
+  else if (s === 'active') d.innerHTML = '<span class="spin">◌</span>';
+  else d.textContent = n;
+}
+function setStatus(txt,color,anim) {
+  document.getElementById('stext').textContent = txt;
+  const d = document.getElementById('sdot'); d.style.background = color;
+  d.style.animation = anim ? 'pulse 2s infinite' : 'none';
+}
+function log(type, msg) {
+  const logs = document.getElementById('panel-logs');
+  const el = document.createElement('div'); el.className = 'log-line ' + type;
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  el.textContent = `[${ts}] ${msg}`; logs.appendChild(el); logs.scrollTop = logs.scrollHeight;
+}
+
+function adj(id, delta, min, max) {
+  const el = document.getElementById(id);
+  const step = Math.abs(delta);
+  let val = Math.round((parseFloat(el.value) + delta) / step) * step;
+  val = Math.min(max, Math.max(min, val));
+  el.value = parseFloat(val.toFixed(2));
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>

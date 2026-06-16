@@ -1,0 +1,10 @@
+langchain
+langchain-core
+langchain-community
+langgraph
+langgraph-prebuilt
+google-genai
+chromadb
+python-dotenv
+opencv-python
+langchain-google-genai

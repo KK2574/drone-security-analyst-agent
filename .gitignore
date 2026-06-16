@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+chroma_db/
+.chroma/
+# videos
+*.mp4
+Testing_Videos/
