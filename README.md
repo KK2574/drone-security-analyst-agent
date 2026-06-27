@@ -1,22 +1,6 @@
 # 🚁 Drone Security Analyst Agent
 > AI-powered aerial surveillance using **Gemini Vision + LangGraph + ChromaDB**
 
----
-
-## 🎥 Demo Videos
-
-**Full Demo (Google Drive):** [Watch here](https://drive.google.com/drive/u/1/folders/1r7Z7PQuexL8aEbO4ZKE4j0MYvz3xqyUg)
-
-Includes:
-- Video processing pipeline
-- Telemetry + frame-level analysis
-- Real-time alert generation
-- Frame indexing and semantic search
-- Agent-based Q&A and reasoning
-- Dashboard walkthrough and testing scenarios
-
----
-
 ## Overview
 
 The Drone Security Analyst Agent processes real drone surveillance footage to detect and analyse security events. It extracts frames using OpenCV, sends each frame to **Gemini 2.5 Flash Vision** for structured JSON analysis, indexes results into **ChromaDB** for semantic search, and runs an 8-rule alert engine. A **LangGraph ReAct agent** with 6 tools enables natural-language follow-up queries over the processed footage.
